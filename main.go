@@ -33,7 +33,9 @@ func init() {
 func respondJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		_ = err
+	}
 }
 
 func respondError(w http.ResponseWriter, statusCode int, message string) {
@@ -99,6 +101,12 @@ func updateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	index, exists := productIndexMap[id]
+	if !exists {
+		respondError(w, http.StatusInternalServerError, "Product index not found")
+		return
+	}
+
 	var updatedProduct Product
 	if err := json.NewDecoder(r.Body).Decode(&updatedProduct); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request")
@@ -107,7 +115,7 @@ func updateProduct(w http.ResponseWriter, r *http.Request) {
 
 	updatedProduct.ID = id
 
-	products[productIndexMap[id]] = updatedProduct
+	products[index] = updatedProduct
 	productsMap[id] = updatedProduct
 
 	respondJSON(w, http.StatusOK, updatedProduct)
@@ -123,6 +131,20 @@ func deleteProduct(w http.ResponseWriter, r *http.Request) {
 	if _, exists := productsMap[id]; !exists {
 		respondError(w, http.StatusNotFound, "Product not found")
 		return
+	}
+
+	index, exists := productIndexMap[id]
+	if !exists {
+		respondError(w, http.StatusInternalServerError, "Product index not found")
+		return
+	}
+
+	products = append(products[:index], products[index+1:]...)
+
+	for pid, idx := range productIndexMap {
+		if idx > index {
+			productIndexMap[pid] = idx - 1
+		}
 	}
 
 	delete(productsMap, id)
@@ -157,8 +179,8 @@ func productByIDHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/health", healthHandler)
-	http.HandleFunc("/api/products/", productByIDHandler)
-	http.HandleFunc("/api/products", productsHandler)
+	http.HandleFunc("/api/produk/", productByIDHandler)
+	http.HandleFunc("/api/produk", productsHandler)
 
 	http.ListenAndServe(":8080", nil)
 }
