@@ -1,2 +1,5 @@
 cashier-api
 *.log
+*.json
+.env
+tmp
