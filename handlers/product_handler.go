@@ -41,7 +41,12 @@ func (h *ProductHandler) HandleProductByID(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *ProductHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	products, err := h.service.GetAll()
+	query := r.URL.Query()
+	page := query.Get("page")
+	limit := query.Get("limit")
+	name := query.Get("name")
+
+	products, err := h.service.GetAll(page, limit, name)
 	if err != nil {
 		utils.Error(w, http.StatusInternalServerError, err.Error())
 		return

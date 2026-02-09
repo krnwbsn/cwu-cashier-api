@@ -4,10 +4,11 @@ import (
 	"cashier-api/models"
 	"database/sql"
 	"errors"
+	"fmt"
 )
 
 type ProductRepositoryInput interface {
-	GetAll() ([]models.Product, error)
+	GetAll(page, limit, name string) ([]models.Product, error)
 	Create(product *models.Product) error
 	GetByID(id int) (*models.Product, error)
 	Update(product *models.Product) error
@@ -22,13 +23,24 @@ func NewProductRepository(db *sql.DB) ProductRepositoryInput {
 	return &productRepository{db: db}
 }
 
-func (repo *productRepository) GetAll() ([]models.Product, error) {
+func (repo *productRepository) GetAll(page, limit, name string) ([]models.Product, error) {
+	fmt.Println(page, limit, name)
 	query := `
 		SELECT p.id, p.name, p.price, p.stock, COALESCE(p.category_id, 0), COALESCE(c.name, '') 
 		FROM product p 
 		LEFT JOIN category c ON p.category_id = c.id
 	`
-	rows, err := repo.db.Query(query)
+	args := []interface{}{}
+	argNum := 1
+	if name != "" {
+		query += " WHERE p.name ILIKE $" + fmt.Sprint(argNum)
+		args = append(args, "%"+name+"%")
+		argNum++
+	}
+	query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argNum, argNum+1)
+	args = append(args, limit, page)
+
+	rows, err := repo.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
